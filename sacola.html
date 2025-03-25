@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carrinho de Compras</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <header class="bg-blue-600 text-white p-4 text-center text-xl font-bold">
+        Carrinho de Compras
+        <nav class="mt-2">
+            <a href="index.html" class="mr-4">Home</a>
+            <a href="cadastro.html" class="mr-4">Cadastro</a>
+        </nav>
+    </header>
+
+    <section class="container mx-auto p-6">
+        <h2 class="text-xl font-bold text-center mb-6">Seu Carrinho</h2>
+        
+        <div id="cartItems" class="bg-white rounded-lg shadow p-4 mb-6">
+            <!-- Os produtos do carrinho vão aparecer aqui -->
+        </div>
+        
+        <div id="emptyCart" class="text-center py-8" style="display: none;">
+            <p class="text-lg">Seu carrinho está vazio.</p>
+            <a href="index.html" class="text-blue-600 mt-2 inline-block">Voltar para a loja</a>
+        </div>
+
+        <div id="cartSummary" class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex justify-between mb-2">
+                <span>Subtotal:</span>
+                <span id="subtotalAmount">R$ 0,00</span>
+            </div>
+            <div class="flex justify-between mb-2">
+                <span>Desconto:</span>
+                <span id="discountAmount">R$ 0,00</span>
+            </div>
+            <div class="flex justify-between font-bold text-lg">
+                <span>Total:</span>
+                <span id="totalAmount">R$ 0,00</span>
+            </div>
+        </div>
+
+        <!-- Formulário de cupom de desconto -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <h3 class="text-lg font-bold mb-2">Cupom de Desconto</h3>
+            <form id="couponForm" class="flex">
+                <input type="text" id="couponCode" placeholder="Digite o cupom" 
+                       class="border p-2 rounded-l flex-grow">
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-r">
+                    Aplicar
+                </button>
+            </form>
+            <p id="couponMessage" class="text-red-600 mt-2 hidden"></p>
+        </div>
+
+        <!-- Formulário de dados do cliente -->
+        <div class="bg-white rounded-lg shadow p-4">
+            <h3 class="text-lg font-bold mb-4">Informações para Entrega</h3>
+            <form id="paymentForm">
+                <div class="mb-4">
+                    <label for="customerName" class="block mb-1">Nome Completo *</label>
+                    <input type="text" id="customerName" required
+                           class="border p-2 w-full rounded">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="customerAddress" class="block mb-1">Endereço de Entrega *</label>
+                    <input type="text" id="customerAddress" required
+                           class="border p-2 w-full rounded">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="customerPhone" class="block mb-1">Telefone (com DDD) *</label>
+                    <input type="text" id="customerPhone" required
+                           class="border p-2 w-full rounded">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="orderMessage" class="block mb-1">Observações</label>
+                    <textarea id="orderMessage" 
+                              class="border p-2 w-full rounded"></textarea>
+                </div>
+                
+                <button type="submit" 
+                        class="bg-green-600 text-white py-3 px-6 rounded-lg w-full font-bold">
+                    Finalizar Pedido
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <script>
+        let discount = 0;
+        let discountValue = 0;
+        const coupons = {
+            "DESCONTO10": 10,
+            "DESCONTO20": 20
+        };
+
+        // Exibe os itens do carrinho
+        function displayCart() {
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const cartItems = document.getElementById('cartItems');
+            const emptyCart = document.getElementById('emptyCart');
+            
+            cartItems.innerHTML = '';
+            
+            if (cart.length === 0) {
+                cartItems.style.display = 'none';
+                emptyCart.style.display = 'block';
+                updateCartSummary(0);
+                return;
+            }
+            
+            cartItems.style.display = 'block';
+            emptyCart.style.display = 'none';
+            
+            let subtotal = 0;
+            
+            cart.forEach((product, index) => {
+                const price = parseFloat(product.price.replace(',', '.'));
+                subtotal += price;
+                
+                const productElement = document.createElement('div');
+                productElement.className = 'flex justify-between items-center py-3 border-b';
+                productElement.innerHTML = `
+                    <div class="flex items-center">
+                        <img src="${product.img}" alt="${product.name}" 
+                             class="w-16 h-16 object-cover mr-4 rounded">
+                        <div>
+                            <h3 class="font-bold">${product.name}</h3>
+                            <p>R$ ${product.price}</p>
+                        </div>
+                    </div>
+                    <button onclick="removeFromCart(${index})" 
+                            class="text-red-600 hover:text-red-800">
+                        Remover
+                    </button>
+                `;
+                
+                cartItems.appendChild(productElement);
+            });
+            
+            updateCartSummary(subtotal);
+        }
+
+        // Atualiza o resumo do carrinho
+        function updateCartSummary(subtotal) {
+            discountValue = subtotal * (discount / 100);
+            const total = subtotal - discountValue;
+            
+            document.getElementById('subtotalAmount').textContent = 
+                `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
+            document.getElementById('discountAmount').textContent = 
+                `- R$ ${discountValue.toFixed(2).replace('.', ',')}`;
+            document.getElementById('totalAmount').textContent = 
+                `R$ ${total.toFixed(2).replace('.', ',')}`;
+        }
+
+        // Remove item do carrinho
+        function removeFromCart(index) {
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            cart.splice(index, 1);
+            localStorage.setItem('cart', JSON.stringify(cart));
+            displayCart();
+        }
+
+        // Aplica cupom de desconto
+        function applyCoupon(event) {
+            event.preventDefault();
+            const code = document.getElementById('couponCode').value.trim().toUpperCase();
+            const message = document.getElementById('couponMessage');
+            
+            if (coupons[code]) {
+                discount = coupons[code];
+                message.textContent = `Cupom aplicado: ${discount}% de desconto!`;
+                message.classList.remove('hidden', 'text-red-600');
+                message.classList.add('text-green-600');
+                
+                // Recarrega o carrinho para aplicar o desconto
+                const cart = JSON.parse(localStorage.getItem('cart')) || [];
+                let subtotal = cart.reduce((sum, item) => sum + parseFloat(item.price.replace(',', '.')), 0);
+                updateCartSummary(subtotal);
+            } else {
+                discount = 0;
+                message.textContent = 'Cupom inválido ou expirado';
+                message.classList.remove('hidden', 'text-green-600');
+                message.classList.add('text-red-600');
+                
+                const cart = JSON.parse(localStorage.getItem('cart')) || [];
+                let subtotal = cart.reduce((sum, item) => sum + parseFloat(item.price.replace(',', '.')), 0);
+                updateCartSummary(subtotal);
+            }
+            
+            message.classList.remove('hidden');
+        }
+
+        // Finaliza o pedido
+        async function confirmOrder(event) {
+            event.preventDefault();
+            
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            if (cart.length === 0) {
+                alert('Seu carrinho está vazio');
+                return;
+            }
+            
+            const nomeCliente = document.getElementById('customerName').value;
+            const enderecoCliente = document.getElementById('customerAddress').value;
+            const telefoneCliente = document.getElementById('customerPhone').value;
+            const mensagemCliente = document.getElementById('orderMessage').value;
+            
+            if (!nomeCliente || !enderecoCliente || !telefoneCliente) {
+                alert('Por favor, preencha todos os campos obrigatórios');
+                return;
+            }
+            
+            // Calcula o total
+            let subtotal = cart.reduce((sum, item) => sum + parseFloat(item.price.replace(',', '.')), 0);
+            let total = subtotal - (subtotal * (discount / 100));
+            
+            // Prepara os dados do pedido
+            const pedidoData = {
+                nome_cliente: nomeCliente,
+                endereco_cliente: enderecoCliente,
+                telefone_cliente: telefoneCliente,
+                mensagem_cliente: mensagemCliente,
+                total: total.toFixed(2),
+                produtos: cart.map(item => ({
+                    nome: item.name,
+                    preco: item.price.replace(',', '.'),
+                    quantidade: 1
+                }))
+            };
+            
+            try {
+                // Envia para o servidor
+                const response = await fetch('http://localhost:3000/confirmar-pedido', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pedidoData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Envia também para o WhatsApp (opcional)
+                    const whatsappMessage = `*NOVO PEDIDO #${result.pedidoId}*\n\n` +
+                        `*Cliente:* ${nomeCliente}\n` +
+                        `*Endereço:* ${enderecoCliente}\n` +
+                        `*Telefone:* ${telefoneCliente}\n` +
+                        `*Total:* R$ ${total.toFixed(2).replace('.', ',')}\n\n` +
+                        `*Produtos:*\n${cart.map(item => `- ${item.name} (R$ ${item.price})`).join('\n')}`;
+                    
+                    const whatsappNumber = '5599984018306';
+                    const encodedMessage = encodeURIComponent(whatsappMessage);
+                    window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
+                    
+                    // Limpa o carrinho
+                    localStorage.setItem('cart', JSON.stringify([]));
+                    alert(`Pedido #${result.pedidoId} confirmado com sucesso!`);
+                    window.location.href = 'index.html';
+                } else {
+                    alert(result.error || 'Erro ao confirmar pedido');
+                }
+            } catch (error) {
+                console.error('Erro ao enviar pedido:', error);
+                alert('Erro ao enviar pedido. Por favor, tente novamente.');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('couponForm').addEventListener('submit', applyCoupon);
+        document.getElementById('paymentForm').addEventListener('submit', confirmOrder);
+
+        // Inicializa o carrinho quando a página carrega
+        window.onload = displayCart;
+    </script>
+</body>
+</html>

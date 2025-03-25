@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HypeSide Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <header class="bg-black text-white p-4">
+        <div class="container mx-auto flex flex-col items-center">
+            <!-- Logo com fundo branco e texto centralizado -->
+            <div class="flex flex-col items-center mb-4">
+                <div class="bg-white p-2 rounded-full">
+                    <img src="hypeside.png" alt="Logo HypeSide Store" class="h-20">
+                </div>
+                <h1 class="text-2xl font-bold mt-2">HypeSide Store</h1>
+            </div>
+            
+            <!-- Menu centralizado abaixo do logo/texto -->
+            <nav class="w-full flex justify-center space-x-6 text-lg">
+                <a href="index.html" class="hover:text-gray-300">Home</a>
+                <a href="cadastro.html" class="hover:text-gray-300">Cadastro</a>
+                <a href="sacola.html" class="hover:text-gray-300">Sacola</a>
+                <button id="logoutButton" class="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded hidden" onclick="logout()">Sair</button>
+            </nav>
+        </div>
+    </header>
+
+    <section class="p-6" id="productsSection">
+        <h2 class="text-xl font-bold text-center">Produtos Disponíveis</h2>
+        <div id="productList" class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Produtos serão exibidos aqui -->
+        </div>
+    </section>
+
+    <!-- Notificação de Produto Adicionado -->
+    <div id="notification" class="hidden fixed top-0 left-0 right-0 bg-green-500 text-white text-center py-2">
+        Produto adicionado ao carrinho!
+    </div>
+
+    <script>
+        // Função para verificar se o administrador está logado
+        function isAdminLoggedIn() {
+            return localStorage.getItem("adminLoggedIn") === "true";
+        }
+
+        // Função para exibir os produtos na página inicial
+        function displayProducts() {
+            const products = JSON.parse(localStorage.getItem("products")) || [];
+            const productList = document.getElementById("productList");
+            productList.innerHTML = ''; // Limpa a lista antes de adicionar os novos produtos
+
+            if (products.length === 0) {
+                productList.innerHTML = '<p class="text-center col-span-full">Nenhum produto cadastrado.</p>';
+            }
+
+            const adminLoggedIn = isAdminLoggedIn(); // Verifica se o administrador está logado
+
+            // Exibe o botão de logout se o administrador estiver logado
+            const logoutButton = document.getElementById("logoutButton");
+            if (adminLoggedIn) {
+                logoutButton.classList.remove("hidden");
+            } else {
+                logoutButton.classList.add("hidden");
+            }
+
+            products.forEach((product, index) => {
+                const productElement = document.createElement('div');
+                productElement.className = 'bg-white p-4 shadow rounded';
+
+                productElement.innerHTML = `
+                    <div class="flex flex-col items-center">
+                        <img src="${product.img}" alt="${product.name}" class="w-32 h-32 object-cover mb-4">
+                        <h3 class="font-bold">${product.name}</h3>
+                        <p class="text-gray-600">R$ ${product.price}</p>
+                        <button onclick="addToCart(${index})" class="mt-4 bg-green-600 text-white py-2 px-4 rounded">Adicionar ao Carrinho</button>
+                        ${adminLoggedIn ? `
+                            <button onclick="removeProduct(${index})" class="mt-4 bg-red-600 text-white py-2 px-4 rounded">Excluir</button>
+                        ` : ''}
+                    </div>
+                `;
+
+                productList.appendChild(productElement);
+            });
+        }
+
+        // Função para adicionar um produto ao carrinho
+        function addToCart(index) {
+            const products = JSON.parse(localStorage.getItem("products")) || [];
+            const cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+            cart.push(products[index]); // Adiciona o produto ao carrinho
+
+            localStorage.setItem("cart", JSON.stringify(cart)); // Atualiza o carrinho no LocalStorage
+            
+            // Exibe a notificação
+            showNotification("Produto adicionado ao carrinho!");
+        }
+
+        // Função para mostrar a notificação
+        function showNotification(message) {
+            const notification = document.getElementById("notification");
+            notification.textContent = message;
+            notification.classList.remove("hidden");
+
+            // Esconde a notificação após 3 segundos
+            setTimeout(() => {
+                notification.classList.add("hidden");
+            }, 3000);
+        }
+
+        // Função para remover um produto
+        function removeProduct(index) {
+            const products = JSON.parse(localStorage.getItem("products")) || [];
+            products.splice(index, 1); // Remove o produto da lista
+            localStorage.setItem("products", JSON.stringify(products)); // Atualiza o LocalStorage
+            displayProducts(); // Atualiza a visualização na página
+            alert("Produto excluído com sucesso!");
+        }
+
+        // Função de logout
+        function logout() {
+            localStorage.removeItem("adminLoggedIn"); // Remove a informação de login
+            alert("Você saiu com sucesso!");
+            window.location.href = "login.html"; // Redireciona para a página de login
+        }
+
+        // Chama a função para exibir os produtos assim que a página carregar
+        displayProducts();
+    </script>
+</body>
+
+<footer class="bg-gray-800 text-white p-6 text-center">
+    <p class="mb-2">Telefone: <strong>(99) 98401-8306</strong></p>
+    <p class="mb-2">Instagram: <a href="https://www.instagram.com/hypeside_store/" class="text-blue-400">@hypeside_store</a></p>
+    <p>Cidade: Imperatriz, MA</p>
+</footer>
+
+</html>

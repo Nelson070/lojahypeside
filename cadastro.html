@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro de Produtos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <header class="bg-blue-600 text-white p-4 text-center text-xl font-bold">
+        Cadastro de Produtos
+        <nav class="mt-2">
+            <a href="index.html" class="mr-4">Home</a>
+            <a href="cadastro.html" class="mr-4">Cadastro</a>
+            <a href="index.html#contato">Contato</a>
+        </nav>
+    </header>
+
+    <section class="p-6" id="adminSection">
+        <h2 class="text-xl font-bold text-center">Cadastrar Novo Produto</h2>
+
+        <form id="productForm" class="bg-white p-6 shadow rounded mt-4">
+            <input type="text" id="productName" placeholder="Nome do Produto" class="border p-2 w-full mb-4" required>
+            <input type="text" id="productPrice" placeholder="Preço (ex: 100,00)" class="border p-2 w-full mb-4" required>
+            <input type="text" id="productImg" placeholder="URL da Imagem" class="border p-2 w-full mb-4" required>
+            <button type="submit" class="bg-blue-600 text-white p-2 w-full">Cadastrar Produto</button>
+        </form>
+    </section>
+
+    <script>
+        // Função para verificar se o administrador está logado
+        function isAdminLoggedIn() {
+            return localStorage.getItem("adminLoggedIn") === "true";
+        }
+
+        // Se o administrador não estiver logado, redireciona para a página de login
+        if (!isAdminLoggedIn()) {
+            alert("Você não tem permissão para acessar esta página. Por favor, faça login.");
+            window.location.href = "login.html"; // Redireciona para a página de login
+        }
+
+        // Função de cadastro de produto
+        document.getElementById("productForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+
+            const name = document.getElementById("productName").value;
+            const price = document.getElementById("productPrice").value;
+            const img = document.getElementById("productImg").value;
+
+            const newProduct = { name, price, img };
+            const products = JSON.parse(localStorage.getItem("products")) || [];
+            products.push(newProduct);
+
+            localStorage.setItem("products", JSON.stringify(products));
+
+            alert("Produto cadastrado com sucesso!");
+            window.location.href = "index.html"; // Redireciona para a página inicial após cadastro
+        });
+    </script>
+</body>
+</html>
