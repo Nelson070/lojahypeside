@@ -1,11 +1,23 @@
+const { Client } = require('pg');
 const express = require('express');
 const cors = require('cors');
-const { Client } = require('pg');
 
 const app = express();
-app.use(cors());
 app.use(express.json());
+app.use(cors()); // Habilita CORS para qualquer origem
 
+app.listen(3000, () => {
+  console.log('Servidor rodando na porta 3000');
+});
+
+
+// Configuração importante do CORS
+app.use(express.json()); // Adicione esta linha
+app.use(cors({
+  origin: ['http://localhost:5500', 'http://127.0.0.1:5500'], // Portas do Live Server
+  methods: ['GET', 'POST', 'DELETE', 'PUT'],
+  allowedHeaders: ['Content-Type']
+}));
 // Configuração da conexão com o PostgreSQL
 const client = new Client({
   user: 'postgres',
@@ -22,30 +34,57 @@ async function initializeDatabase() {
     console.log('Conectado ao PostgreSQL');
 
     // Criação das tabelas
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS pedidos (
-        id SERIAL PRIMARY KEY,
-        nome_cliente VARCHAR(100) NOT NULL,
-        endereco_cliente TEXT NOT NULL,
-        telefone_cliente VARCHAR(20) NOT NULL,
-        mensagem_cliente TEXT,
-        total DECIMAL(10, 2) NOT NULL,
-        data_pedido TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        status VARCHAR(20) DEFAULT 'pendente'
-      );
-    `);
+    const tables = [
+      {
+        name: 'produtos',
+        schema: `
+          id SERIAL PRIMARY KEY,
+          nome VARCHAR(100) NOT NULL,
+          preco DECIMAL(10,2) NOT NULL,
+          imagem TEXT NOT NULL,
+          data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        `
+      },
+      {
+        name: 'pedidos',
+        schema: `
+          id SERIAL PRIMARY KEY,
+          nome_cliente VARCHAR(100) NOT NULL,
+          endereco_cliente TEXT NOT NULL,
+          telefone_cliente VARCHAR(20) NOT NULL,
+          mensagem_cliente TEXT,
+          total DECIMAL(10, 2) NOT NULL,
+          data_pedido TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          status VARCHAR(20) DEFAULT 'pendente'
+        `
+      },
+      {
+        name: 'produtos_pedido',
+        schema: `
+          id SERIAL PRIMARY KEY,
+          pedido_id INTEGER REFERENCES pedidos(id),
+          produto_nome VARCHAR(100) NOT NULL,
+          produto_preco DECIMAL(10,2) NOT NULL,
+          quantidade INTEGER NOT NULL DEFAULT 1
+        `
+      }
+    ];
+    for (const table of tables) {
+      try {
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${table.name} (${table.schema});
+        `);
+        console.log(`Tabela ${table.name} verificada/criada`);
+      } catch (error) {
+        if (error.code === '42P07') {
+          console.log(`Tabela ${table.name} já existe`);
+        } else {
+          throw error;
+        }
+      }
+    }
 
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS produtos_pedido (
-        id SERIAL PRIMARY KEY,
-        pedido_id INTEGER REFERENCES pedidos(id),
-        produto_nome VARCHAR(100) NOT NULL,
-        produto_preco DECIMAL(10, 2) NOT NULL,
-        quantidade INTEGER NOT NULL
-      );
-    `);
-
-    console.log('Tabelas verificadas/criadas com sucesso');
+    console.log('Todas tabelas verificadas com sucesso');
   } catch (error) {
     console.error('Erro ao inicializar o banco de dados:', error);
     process.exit(1);
@@ -53,6 +92,76 @@ async function initializeDatabase() {
 }
 
 initializeDatabase();
+
+// Rota para cadastrar produto
+app.post('/produtos', async (req, res) => {
+  try {
+    const { nome, preco, imagem } = req.body;
+    
+    // Validação robusta
+    if (!nome || typeof nome !== 'string') {
+      return res.status(400).json({ error: 'Nome do produto inválido' });
+    }
+    
+    const precoNum = parseFloat(preco);
+    if (isNaN(precoNum)) {
+      return res.status(400).json({ error: 'Preço inválido' });
+    }
+
+    if (!imagem || typeof imagem !== 'string') {
+      return res.status(400).json({ error: 'URL da imagem inválida' });
+    }
+
+    const result = await client.query(
+      `INSERT INTO produtos (nome, preco, imagem) 
+       VALUES ($1, $2, $3) RETURNING *`,
+      [nome, precoNum, imagem]
+    );
+
+    res.status(201).json(result.rows[0]);
+    
+  } catch (error) {
+    console.error('Erro no cadastro:', error);
+    res.status(500).json({ 
+      error: 'Erro no servidor',
+      details: error.message 
+    });
+  }
+});
+
+// Rota para listar produtos
+app.get('/produtos', async (req, res) => {
+  try {
+    const result = await client.query('SELECT * FROM produtos');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erro ao buscar produtos:', error);
+    res.status(500).json({ error: 'Erro ao buscar produtos' });
+  }
+});
+
+// Rota para excluir produto
+app.delete('/produtos/:id', async (req, res) => {
+  try {
+    const result = await client.query(
+      'DELETE FROM produtos WHERE id = $1 RETURNING *',
+      [req.params.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Produto não encontrado' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Produto excluído com sucesso',
+      produto: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Erro ao excluir produto:', error);
+    res.status(500).json({ error: 'Erro ao excluir produto' });
+  }
+});
 
 // Rota para confirmar pedido
 app.post('/confirmar-pedido', async (req, res) => {

@@ -7,55 +7,139 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100">
-    <header class="bg-blue-600 text-white p-4 text-center text-xl font-bold">
-        Cadastro de Produtos
-        <nav class="mt-2">
-            <a href="index.html" class="mr-4">Home</a>
-            <a href="cadastro.html" class="mr-4">Cadastro</a>
-            <a href="index.html#contato">Contato</a>
-        </nav>
+    <header class="bg-black text-white p-4">
+        <!-- Seu cabeçalho aqui -->
     </header>
 
-    <section class="p-6" id="adminSection">
-        <h2 class="text-xl font-bold text-center">Cadastrar Novo Produto</h2>
+    <section class="container mx-auto p-6">
+        <h2 class="text-2xl font-bold mb-6">Cadastro de Produtos</h2>
 
-        <form id="productForm" class="bg-white p-6 shadow rounded mt-4">
-            <input type="text" id="productName" placeholder="Nome do Produto" class="border p-2 w-full mb-4" required>
-            <input type="text" id="productPrice" placeholder="Preço (ex: 100,00)" class="border p-2 w-full mb-4" required>
-            <input type="text" id="productImg" placeholder="URL da Imagem" class="border p-2 w-full mb-4" required>
-            <button type="submit" class="bg-blue-600 text-white p-2 w-full">Cadastrar Produto</button>
-        </form>
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <form id="productForm" class="space-y-4">
+                <div>
+                    <label for="productName" class="block mb-1">Nome do Produto *</label>
+                    <input type="text" id="productName" required
+                           class="w-full p-2 border rounded">
+                </div>
+                
+                <div>
+                    <label for="productPrice" class="block mb-1">Preço *</label>
+                    <input type="number" step="0.01" id="productPrice" required
+                           class="w-full p-2 border rounded">
+                </div>
+                
+                <div>
+                    <label for="productImage" class="block mb-1">URL da Imagem *</label>
+                    <input type="url" id="productImage" required
+                           class="w-full p-2 border rounded">
+                </div>
+                
+                <button type="submit" 
+                        class="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700">
+                    Cadastrar Produto
+                </button>
+            </form>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-xl font-bold mb-4">Produtos Cadastrados</h3>
+            <div id="productsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Produtos serão carregados aqui -->
+            </div>
+        </div>
     </section>
 
+    
+
     <script>
-        // Função para verificar se o administrador está logado
-        function isAdminLoggedIn() {
-            return localStorage.getItem("adminLoggedIn") === "true";
+        // Função para carregar produtos
+        async function loadProducts() {
+            try {
+                const response = await fetch('http://localhost:3000/produtos');
+                if (!response.ok) throw new Error('Erro ao carregar produtos');
+                
+                const produtos = await response.json();
+                const container = document.getElementById('productsList');
+                
+                container.innerHTML = produtos.length > 0 
+                    ? produtos.map(produto => {
+                        let preco = Number(produto.preco?.toString().replace(',', '.')) || 0;
+                        return `
+                            <div class="border rounded-lg p-4">
+                                <img src="${produto.imagem}" alt="${produto.nome}" class="w-full h-48 object-cover mb-3 rounded">
+                                <h4 class="font-bold">${produto.nome}</h4>
+                                <p class="text-gray-600">R$ ${preco.toFixed(2)}</p>
+                                <button onclick="deleteProduct(${produto.id})" class="mt-2 bg-red-600 text-white py-1 px-3 rounded text-sm">Excluir</button>
+                            </div>
+                        `;
+                    }).join('')
+                    : '<p class="text-center col-span-3">Nenhum produto cadastrado</p>';
+            } catch (error) {
+                console.error('Erro:', error);
+                document.getElementById('productsList').innerHTML = `<div class="text-red-600 col-span-3">Erro ao carregar produtos: ${error.message}</div>`;
+            }
         }
 
-        // Se o administrador não estiver logado, redireciona para a página de login
-        if (!isAdminLoggedIn()) {
-            alert("Você não tem permissão para acessar esta página. Por favor, faça login.");
-            window.location.href = "login.html"; // Redireciona para a página de login
+        // Função para excluir produto
+        async function deleteProduct(id) {
+            if (!confirm('Tem certeza que deseja excluir este produto?')) return;
+            
+            try {
+                const response = await fetch(`http://localhost:3000/produtos/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Erro ao excluir');
+                }
+
+                alert('Produto excluído com sucesso!');
+                await loadProducts();
+            } catch (error) {
+                console.error('Erro:', error);
+                alert(`Erro ao excluir: ${error.message}`);
+            }
         }
 
-        // Função de cadastro de produto
-        document.getElementById("productForm").addEventListener("submit", function(event) {
-            event.preventDefault();
+        // Event listener para o formulário
+        document.getElementById('productForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            try {
+                const productData = {
+                    nome: document.getElementById('productName').value,
+                    preco: parseFloat(document.getElementById('productPrice').value),
+                    imagem: document.getElementById('productImage').value
+                };
 
-            const name = document.getElementById("productName").value;
-            const price = document.getElementById("productPrice").value;
-            const img = document.getElementById("productImg").value;
+                if (!productData.nome || isNaN(productData.preco) || !productData.imagem) {
+                    throw new Error('Preencha todos os campos corretamente!');
+                }
 
-            const newProduct = { name, price, img };
-            const products = JSON.parse(localStorage.getItem("products")) || [];
-            products.push(newProduct);
+                const response = await fetch('http://localhost:3000/produtos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(productData)
+                });
 
-            localStorage.setItem("products", JSON.stringify(products));
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Erro no servidor');
+                }
 
-            alert("Produto cadastrado com sucesso!");
-            window.location.href = "index.html"; // Redireciona para a página inicial após cadastro
+                const result = await response.json();
+                alert(`Produto "${result.nome}" cadastrado com sucesso!`);
+                this.reset();
+                await loadProducts();
+            } catch (error) {
+                console.error('Erro:', error);
+                alert(`Erro ao cadastrar: ${error.message}`);
+            }
         });
+
+        // Carrega os produtos quando a página é aberta
+        document.addEventListener('DOMContentLoaded', loadProducts);
     </script>
 </body>
 </html>

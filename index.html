@@ -44,14 +44,32 @@
         }
 
         // Função para exibir os produtos na página inicial
-        function displayProducts() {
-            const products = JSON.parse(localStorage.getItem("products")) || [];
-            const productList = document.getElementById("productList");
-            productList.innerHTML = ''; // Limpa a lista antes de adicionar os novos produtos
+        async function loadHomeProducts() {
+    try {
+        const response = await fetch('http://localhost:3000/produtos');
+        if (!response.ok) throw new Error('Erro ao carregar produtos');
 
-            if (products.length === 0) {
-                productList.innerHTML = '<p class="text-center col-span-full">Nenhum produto cadastrado.</p>';
-            }
+        const produtos = await response.json();
+        const container = document.getElementById('productList');
+
+        container.innerHTML = produtos.length > 0
+            ? produtos.map(produto => `
+                <div class="border rounded-lg p-4">
+                    <img src="${produto.imagem}" alt="${produto.nome}" class="w-full h-48 object-cover mb-3 rounded">
+                    <h4 class="font-bold">${produto.nome}</h4>
+                    <p class="text-gray-600">R$ ${parseFloat(produto.preco).toFixed(2)}</p>
+                    <button onclick="addToCart(${produto.id})" class="mt-2 bg-green-600 text-white py-1 px-3 rounded">Adicionar ao Carrinho</button>
+                </div>
+            `).join('')
+            : '<p class="text-center col-span-3">Nenhum produto disponível</p>';
+    } catch (error) {
+        console.error('Erro:', error);
+    }
+}
+
+// Carregar os produtos ao carregar a página
+document.addEventListener('DOMContentLoaded', loadHomeProducts);
+
 
             const adminLoggedIn = isAdminLoggedIn(); // Verifica se o administrador está logado
 
@@ -81,7 +99,7 @@
 
                 productList.appendChild(productElement);
             });
-        }
+        
 
         // Função para adicionar um produto ao carrinho
         function addToCart(index) {
